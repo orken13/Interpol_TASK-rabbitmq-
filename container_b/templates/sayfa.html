@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Interpol Kişi Takip Sistemi</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(to right, #1a1a2e, #800020);
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            width: 95%;
+            max-width: 1400px;
+            background: rgba(30, 30, 45, 0.85);
+            padding: 20px;
+            box-shadow: 0px 0px 25px rgba(0, 0, 0, 0.5);
+            border-radius: 15px;
+            margin: 40px 0;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+
+        .header h1 {
+            color: #ffffff;
+            font-size: 36px;
+            margin-bottom: 10px;
+            text-shadow: 0 0 10px rgba(255, 0, 0, 0.5);
+        }
+
+        .header .interpol-title {
+            color: #ff3333;
+            font-weight: bold;
+            font-size: 42px;
+        }
+
+        .header p {
+            color: #cccccc;
+            font-style: italic;
+        }
+
+        .content-wrapper {
+            display: flex;
+            width: 100%;
+            gap: 20px;
+        }
+
+        .left-panel {
+            width: 60%;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .right-panel {
+            width: 40%;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        .search-section, .results-section {
+            background: rgba(40, 40, 60, 0.7);
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        .data-stream {
+            border: 1px solid #444;
+            height: 500px;
+            overflow-y: auto;
+            padding: 15px;
+            background: rgba(240, 240, 240, 0.9);
+            border-radius: 10px;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            box-shadow: inset 0 0 15px rgba(0, 0, 0, 0.2);
+        }
+
+        h3 {
+            text-align: center;
+            color: #fff;
+            margin-top: 10px;
+            margin-bottom: 20px;
+            font-size: 24px;
+            text-shadow: 0 0 5px rgba(0, 0, 0, 0.5);
+        }
+
+        .search-section label, .results-section label {
+            display: block;
+            font-size: 14px;
+            color: #cccccc;
+            margin: 10px 0 5px 0;
+        }
+
+        .search-section input, .results-section input {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 15px;
+            border-radius: 5px;
+            border: 1px solid #555;
+            background-color: rgba(255, 255, 255, 0.9);
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #c41e3a;
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s ease;
+            margin-top: 15px;
+            width: 100%;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        button:hover {
+            background-color: #e62b4c;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        button:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 3px rgba(0, 0, 0, 0.2);
+        }
+
+        #person-details {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            color: #f0f0f0;
+            min-height: 200px;
+        }
+
+        /* Person Card Styles */
+        .person-card {
+            background: white;
+            border-radius: 8px;
+            margin:  0 0 10px 0;
+            padding: 0;
+            transition: all 0.3s;
+            overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            animation: slideUp 0.6s ease-in-out;
+            width: 100%;
+            flex-shrink: 0; /* Kartların küçülmesini önle */
+            min-height: 130px; /* Minimum kart yüksekliği */
+            position: relative; /* Pozisyon referansı */
+            display: block; /
+        }
+
+        .person-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(50px);
+                opacity: 0;
+            }
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .person-card-content {
+            display: flex;
+            padding: 15px;
+        }
+
+        .person-photo {
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-right: 15px;
+        }
+
+        .person-info {
+            flex: 1;
+        }
+
+        .person-info h5 {
+            margin-top: 0;
+            margin-bottom: 8px;
+            color: #333;
+            font-size: 18px;
+        }
+
+        .person-info p {
+            margin: 3px 0;
+            color: #555;
+            font-size: 14px;
+        }
+
+        .alarm-red {
+            border-left: 6px solid #c41e3a;
+            background-color: rgba(255, 0, 0, 0.05);
+        }
+
+        .notifications {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            width: 300px;
+        }
+
+        .notification {
+            margin-bottom: 10px;
+            padding: 15px;
+            border-radius: 5px;
+            box-shadow: 0 3px 10px rgba(0, 0, 0, 0.2);
+        }
+
+        .notification-normal {
+            background-color: #f8f9fa;
+            border-left: 4px solid #0d6efd;
+        }
+
+        .notification-alarm {
+            background-color: #fff8f8;
+            border-left: 4px solid red;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 0, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 0, 0, 0); }
+        }
+
+        /* Demo kartları (Gerçek uygulama için silinebilir) */
+        .demo-card {
+            margin-bottom: 15px;
+            padding: 0;
+            animation: none;
+        }
+
+        /* Connection status indicator */
+        .connection-status {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            padding: 8px 15px;
+            border-radius: 20px;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .connected {
+            background-color: rgba(0, 128, 0, 0.8);
+            color: white;
+        }
+
+        .disconnected {
+            background-color: rgba(255, 0, 0, 0.8);
+            color: white;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+
+        .connected .status-dot {
+            background-color: #4CAF50;
+            box-shadow: 0 0 8px #4CAF50;
+        }
+
+        .disconnected .status-dot {
+            background-color: #f44336;
+            box-shadow: 0 0 8px #f44336;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><span class="interpol-title">INTERPOL</span> KİŞİ TAKİP SİSTEMİ</h1>
+            <p>International Criminal Police Organization - Aranan Kişiler</p>
+        </div>
+
+        <div class="content-wrapper">
+            <div class="left-panel">
+                <h3>Canlı Veri Akışı</h3>
+                <div class="data-stream" id="persons-container">
+                    <!-- Demo kartları - Socket.io bağlantısı çalıştığında silinecek -->
+                    <div class="person-card demo-card">
+                        <div class="person-card-content">
+                            <img src="https://www.interpol.int/bundles/interpolfront/images/fallback_picture.png"
+                                alt="Demo Kişi" class="person-photo">
+
+                        </div>
+                    </div>
+                    <div class="person-card demo-card alarm-red">
+                        <div class="person-card-content">
+                            <img src="https://www.interpol.int/bundles/interpolfront/images/fallback_picture.png"
+                                alt="Demo Kişi" class="person-photo">
+
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="right-panel">
+                <div class="search-section">
+                    <h3>Arama</h3>
+                    <label>Adı:</label>
+                    <input type="text" id="name" placeholder="Kişi adını girin">
+                    <label>Soyadı:</label>
+                    <input type="text" id="surname" placeholder="Kişi soyadını girin">
+                    <label>Ülke:</label>
+                    <input type="text" id="country" placeholder="Ülke girin">
+                    <button onclick="searchPerson()">Ara</button>
+                </div>
+
+                <div class="results-section">
+                    <h3>Sonuçlar</h3>
+                    <div id="person-details">
+                        <!-- Arama sonuçları buradaa gösterilecek -->
+                        <p>Arama kriterlerini girin ve ara butonuna basın.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="notifications" id="notifications-container">
+        <!-- Bildirimler burada gösterilecek -->
+    </div>
+
+    <div id="connection-status" class="connection-status disconnected">
+        <span class="status-dot"></span>
+        <span id="status-text">Bağlantı Bekleniyor...</span>
+    </div>
+
+    <script>
+
+        const socket = io("http://localhost:5000");
+        const personsContainer = document.getElementById('persons-container');
+        const notificationsContainer = document.getElementById('notifications-container');
+        const connectionStatus = document.getElementById('connection-status');
+        const statusText = document.getElementById('status-text');
+        const persons = new Map(); // Kişileri saklamak için
+        let connectionAttempts = 0;
+        const maxReconnectAttempts = 5;
+
+        // Connection event handlers
+        socket.on('connect', function() {
+            console.log('WebSocket bağlantısı kuruldu.');
+            connectionStatus.className = "connection-status connected";
+            statusText.textContent = "Bağlantı Sağlandı";
+            connectionAttempts = 0;
+
+            // Demo kartlarını temizle
+            const demoCards = document.querySelectorAll('.demo-card');
+            demoCards.forEach(card => {
+                card.remove();
+            });
+
+            // Bağlantı kurulduğunda bir bildirim göster
+            showConnectionNotification(true);
+        });
+
+        socket.on('disconnect', function() {
+            console.log('WebSocket bağlantısı kesildi.');
+            connectionStatus.className = "connection-status disconnected";
+            statusText.textContent = "Bağlantı Kesildi";
+            showConnectionNotification(false);
+
+            // Yeniden bağlanma işlemi
+            if (connectionAttempts < maxReconnectAttempts) {
+                connectionAttempts++;
+                setTimeout(() => {
+                    statusText.textContent = `Yeniden Bağlanıyor (${connectionAttempts}/${maxReconnectAttempts})...`;
+                    socket.connect();
+                }, 3000);
+            } else {
+                statusText.textContent = "Bağlantı başarısız! Sayfayı yenileyin.";
+            }
+        });
+
+        socket.on('connect_error', function(error) {
+            console.error('Bağlantı hatası:', error);
+            connectionStatus.className = "connection-status disconnected";
+            statusText.textContent = "Bağlantı Hatası";
+        });
+
+        // Yeni veri geldiğinde
+            socket.on('new_data', function(message) {
+            console.log('Yeni veri:', message);
+
+            const data = message.data;
+            const isAlarm = message.alarm === 'red';
+
+            // Sadece güncelleme durumunda bildirim göster
+            if (persons.has(data.Entity_id)) {
+                showNotification(message, true); // Güncelleme için bildirim göster
+                updatePersonCard(data, isAlarm);
+            } else {
+                // Yeni kişi ekleniyor, bildirim gösterme
+                createPersonCard(data, isAlarm);
+            }
+        });
+
+        // Bağlantı durumu bildirimi göster
+        function showConnectionNotification(isConnected) {
+            const div = document.createElement('div');
+            div.className = `notification ${isConnected ? 'notification-normal' : 'notification-alarm'}`;
+            div.innerHTML = `
+                <strong>${isConnected ? '✅ BAĞLANTI:' : '❌ BAĞLANTI:'}</strong>
+                <div>${isConnected ? 'Socket.IO bağlantısı başarılı' : 'Bağlantı kesildi!'}</div>
+                <small>${new Date().toLocaleTimeString()}</small>
+            `;
+
+            notificationsContainer.prepend(div);
+
+            // 5 saniye sonra bildirim kaybolsun
+            setTimeout(() => {
+                div.style.opacity = '0';
+                div.style.transition = 'opacity 0.5s';
+                setTimeout(() => div.remove(), 500);
+            }, 5000);
+        }
+
+       // Yeni kişi kartı oluştur
+function createPersonCard(data, isAlarm) {
+    const personCard = document.createElement('div');
+    personCard.className = `person-card`; // Kırmızı alarm sınıfını kaldırdım
+    personCard.id = `person-${data.Entity_id}`;
+
+    personCard.innerHTML = `
+        <div class="person-card-content">
+            <img src="${data.Photo_url || 'https://www.interpol.int/bundles/interpolfront/images/fallback_picture.png'}"
+                 alt="${data.Name}" class="person-photo">
+            <div class="person-info">
+                <h5>${data.Name}</h5>
+                <p><strong>ID:</strong> ${data.Entity_id}</p>
+                <p><strong>Cinsiyet:</strong> ${data.Sex}</p>
+                <p><strong>Uyruk:</strong> ${data.Nationalities}</p>
+                <p><strong>Suç:</strong> ${data.Crime}</p>
+                <p><strong>Durum:</strong> ${data.Status}</p>
+            </div>
+        </div>
+    `;
+
+    personsContainer.prepend(personCard);
+    persons.set(data.Entity_id, data);
+}
+
+        // Mevcut kişi kartını güncelle
+        function updatePersonCard(data, isAlarm) {
+            const card = document.getElementById(`person-${data.Entity_id}`);
+            if (!card) return;
+
+            const content = `
+                <div class="person-card-content">
+                    <img src="${data.Photo_url || 'https://www.interpol.int/bundles/interpolfront/images/fallback_picture.png'}"
+                         alt="${data.Name}" class="person-photo">
+                    <div class="person-info">
+                        <h5>${data.Name}</h5>
+                        <p><strong>ID:</strong> ${data.Entity_id}</p>
+                        <p><strong>Cinsiyet:</strong> ${data.Sex}</p>
+                        <p><strong>Uyruk:</strong> ${data.Nationalities}</p>
+                        <p><strong>Suç:</strong> ${data.Crime}</p>
+
+                    </div>
+                </div>
+            `;
+
+            card.innerHTML = content;
+
+            if (isAlarm) {
+                card.classList.add('alarm-red');
+                // Kart güncellendiyse en üste taşı
+                personsContainer.prepend(card);
+            }
+
+            persons.set(data.Entity_id, data);
+        }
+
+        // Bildirim göster - Sadece güncelleme durumunda
+        // Bildirim göster - Sadece güncelleme durumunda
+function showNotification(message, isUpdate) {
+    // Sadece güncelleme ise bildirim göster
+    if (isUpdate) {
+        const isAlarm = message.alarm === 'red';
+        const div = document.createElement('div');
+        div.className = `notification ${isAlarm ? 'notification-alarm' : 'notification-normal'}`;
+        div.innerHTML = `
+            <strong>⚠️ GÜNCELLENDİ:</strong>
+            <div>${message.name}</div>
+            <small>${message.timestamp}</small>
+        `;
+
+        notificationsContainer.prepend(div);
+
+        // 5 saniye sonra bildirim kaybolsun
+        setTimeout(() => {
+            div.style.opacity = '0';
+            div.style.transition = 'opacity 0.5s';
+            setTimeout(() => div.remove(), 500);
+        }, 5000);
+
+        // En fazla 5 bildirim göster
+        const notifications = notificationsContainer.querySelectorAll('.notification');
+        if (notifications.length > 5) {
+            for (let i = 2; i < notifications.length; i++) {
+                notifications[i].remove();
+            }
+        }
+    }
+}
+        // Arama fonksiyonu
+function searchPerson() {
+    const name = document.getElementById("name").value.trim();
+    const surname = document.getElementById("surname").value.trim();
+    const country = document.getElementById("country").value.trim();
+    const resultDiv = document.getElementById("person-details");
+
+    if (name || surname || country) {
+        resultDiv.innerHTML = "<p>Aranıyor...</p>";
+
+        console.log('Arama isteği gönderiliyor:', { name, surname, country });
+
+        fetch('http://localhost:5000/search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                name: name,
+                surname: surname,
+                country: country
+            })
+
+        })
+        .then(response => {
+            console.log('Yanıt durumu:', response.status);
+            if (!response.ok) {
+                throw new Error(`HTTP hata! Durum: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Arama sonuçları:', data);
+
+            if (data.success) {
+                if (data.results && data.results.length > 0) {
+                    let html = '<div class="search-results">';
+
+                    data.results.forEach(person => {
+                        console.log('Kişi verisi:', person); // Her kişi verisini kontrol et
+
+                        html += `
+                            <div class="person-card">
+                                <div class="person-card-content">
+                                    <img src="${person.Photo_url || 'https://www.interpol.int/bundles/interpolfront/images/fallback_picture.png'}"
+                                        alt="${person.Name || 'İsimsiz'}" class="person-photo">
+                                    <div class="person-info">
+                                        <h5>${person.Name || 'İsimsiz'}</h5>
+
+                                        <p><strong>ID:</strong> ${person.Entity_id || 'Bilinmiyor'}</p>
+                                        <p><strong>Cinsiyet:</strong> ${person.Sex || 'Belirtilmemiş'}</p>
+                                        <p><strong>Uyruk:</strong> ${person.Nationalities || 'Belirtilmemiş'}</p>
+                                        <p><strong>Suç:</strong> ${person.Crime || 'Belirtilmemiş'}</p>
+
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    html += '</div>';
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = "<p>Aramanızla eşleşen sonuç bulunamadı.</p>";
+                }
+            } else {
+                resultDiv.innerHTML = `<p>Arama sırasında bir hata oluştu: ${data.error || 'Bilinmeyen hata'}</p>`;
+            }
+        })
+        .catch(error => {
+            console.error('Arama hatası:', error);
+            resultDiv.innerHTML = `<p>Sunucu bağlantısında bir hata oluştu: ${error.message}. Lütfen sunucu loglarını kontrol edin.</p>`;
+        });
+    } else {
+        resultDiv.innerHTML = "<p>Lütfen en az bir arama kriteri girin.</p>";
+    }
+}
+    </script>
+</body>
+</html>

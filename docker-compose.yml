@@ -1,0 +1,20 @@
+services:
+  rabbitmq:
+    image: rabbitmq:3-management
+    build: ./container_c
+    container_name: rabbitmq
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+
+  producer:
+    build: ./container_a
+    container_name: producer
+    depends_on:
+      - rabbitmq
+
+  consumer:
+    build: ./container_b
+    container_name: consumer
+    depends_on:
+      - rabbitmq
